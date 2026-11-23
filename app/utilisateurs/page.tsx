@@ -11,11 +11,11 @@ export default function Utilisateurs() {
   const router = useRouter();
 
   const [nom, setNom] = useState("");
+  const [email, setEmail] = useState("");       // ✅ nouveau champ
   const [motDePasse, setMotDePasse] = useState("");
   const [role, setRole] = useState<"administrateur" | "employe">("employe");
   const [message, setMessage] = useState("");
 
-  // ✅ Tous les hooks sont AVANT toute sortie anticipée
   useEffect(() => {
     if (utilisateur?.role === "administrateur") {
       chargerUtilisateurs();
@@ -24,12 +24,11 @@ export default function Utilisateurs() {
 
   if (!utilisateur) return null;
 
-  // Seul l'administrateur accède à cette page
   if (utilisateur.role !== "administrateur") {
     return (
       <div className="min-h-screen bg-green-50 p-8 text-center">
         <p className="text-red-600 font-bold text-xl">
-          ❌ Accès réservé à l'administratrice
+          ❌ Accès réservé à l&apos;administratrice
         </p>
         <button
           onClick={() => router.push("/dashboard")}
@@ -42,21 +41,22 @@ export default function Utilisateurs() {
   }
 
   const handleAjouter = async () => {
-    if (!nom || !motDePasse) {
+    if (!nom || !email || !motDePasse) {
       setMessage("⚠️ Remplissez tous les champs");
       return;
     }
-    const succes = await ajouterUtilisateur(nom, motDePasse, role);
+    // ✅ on passe aussi l'email
+    const succes = await ajouterUtilisateur(nom, email, motDePasse, role);
     if (succes) {
       setMessage(`✅ Compte "${nom}" créé !`);
       setNom("");
+      setEmail("");
       setMotDePasse("");
     } else {
-      setMessage("⚠️ Ce nom est déjà utilisé");
+      setMessage("⚠️ Ce nom ou cet email est déjà utilisé");
     }
   };
 
-  // 🛡️ Filet de sécurité : si la liste n'est pas encore un tableau, on affiche []
   const liste = Array.isArray(utilisateurs) ? utilisateurs : [];
 
   return (
@@ -70,7 +70,6 @@ export default function Utilisateurs() {
 
       <h1 className="text-2xl font-bold mb-6">👥 Gestion des employés</h1>
 
-      {/* Formulaire de création */}
       <div className="bg-white p-6 rounded-lg shadow mb-8 max-w-md">
         <h2 className="font-bold mb-4">➕ Créer un compte</h2>
         <input
@@ -78,6 +77,13 @@ export default function Utilisateurs() {
           placeholder="Nom de l'employé"
           value={nom}
           onChange={(e) => setNom(e.target.value)}
+          className="border p-2 rounded w-full mb-3"
+        />
+        <input
+          type="email"
+          placeholder="Email (ex: dilan@clinique.com)"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="border p-2 rounded w-full mb-3"
         />
         <input
@@ -104,7 +110,6 @@ export default function Utilisateurs() {
         {message && <p className="mt-3 text-sm">{message}</p>}
       </div>
 
-      {/* Liste des comptes */}
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="font-bold mb-4">📋 Comptes existants</h2>
         <table className="w-full text-left">
