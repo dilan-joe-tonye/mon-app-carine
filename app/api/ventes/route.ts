@@ -5,7 +5,9 @@ import { verifierSession } from "../session";
 
 const CHEMIN = path.join(process.cwd(), "data", "ventes.json");
 
-async function lireVentes() {
+type Vente = { id: number; [key: string]: any };
+
+async function lireVentes(): Promise<Vente[]> {
   try {
     return JSON.parse(await fs.readFile(CHEMIN, "utf-8"));
   } catch {
@@ -49,7 +51,7 @@ export async function POST(requete: Request) {
     return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
   const body = await requete.json();
   const ventes = await lireVentes();
-  const nouvelle = { id: Date.now(), ...body };
+  const nouvelle: Vente = { id: Date.now(), ...body };
   ventes.push(nouvelle);
   await fs.writeFile(CHEMIN, JSON.stringify(ventes, null, 2));
 
@@ -66,7 +68,9 @@ export async function DELETE(requete: Request) {
   const { searchParams } = new URL(requete.url);
   const id = Number(searchParams.get("id"));
   const ventes = await lireVentes();
-  await fs.writeFile(CHEMIN, JSON.stringify(ventes.filter((v) => v.id !== id), null, 2));
+  await fs.writeFile(
+    CHEMIN,
+    JSON.stringify(ventes.filter((v: Vente) => v.id !== id), null, 2)
+  );
   return NextResponse.json({ ok: true });
 }
-
