@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1795363230685,
+    "article": "encens",
+    "quantite": 20,
+    "prixUnitaire": 1000,
+    "total": 20000
+  },
+  {
+    "id": 1795381885859,
+    "article": "savon",
+    "quantite": 2,
+    "prixUnitaire": 10000,
+    "total": 20000
+  },
+  {
+    "id": 1795381962352,
+    "article": "savon",
+    "quantite": 1,
+    "prixUnitaire": 10000,
+    "total": 10000
+  }
+]

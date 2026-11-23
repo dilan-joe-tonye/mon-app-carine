@@ -1,0 +1,12 @@
+[
+  {
+    "nom": "carine",
+    "motDePasse": "$2b$10$IIOxBH8/5Dpngb6mcNxkwOwNfz0qAMWO7pdlKbH8UfIZ9lfOx/JBy",
+    "role": "administrateur"
+  },
+  {
+    "nom": "joe",
+    "motDePasse": "$2b$10$YdAhHY/fSWFRhBJA6QrST.N7kUnB5mFpgPebwTYOxOvQ0RxnV8Vvy",
+    "role": "employe"
+  }
+]
