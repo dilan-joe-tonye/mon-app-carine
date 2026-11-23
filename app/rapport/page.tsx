@@ -16,7 +16,8 @@ export default function PageRapport() {
 
   useEffect(() => {
     // ✅ La date est calculée dans le useEffect, jamais au prerender
-    setAujourdhui(new Date().toLocaleDateString("fr-FR"));
+setAujourdhui(new Date().toLocaleDateString("fr-CA"));
+
 
     // 📥 On charge depuis la base de données (plus le localStorage !)
     fetch("/api/ventes")
@@ -58,7 +59,8 @@ export default function PageRapport() {
       <div className="text-center border-b-2 border-green-700 pb-4 mb-6">
         <img src="/logo.png.jpeg" alt="Logo" className="w-24 h-24 mx-auto object-contain" />
         <h1 className="text-2xl font-bold text-green-800">Clinique Traditionnelle des Arbres 🌿</h1>
-        <p className="text-lg">Rapport du {aujourdhui}</p>
+        <p className="text-lg">Rapport du {new Date(aujourdhui).toLocaleDateString("fr-FR")}</p>
+
       </div>
 
       {/* Ventes */}
