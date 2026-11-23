@@ -8,7 +8,7 @@ type Vente = { id: number; article: string; quantite: number; total: number; dat
 type Consultation = { id: number; nom: string; motif: string; soin: string; montant: number; date: string };
 
 export default function PageRapport() {
-  const { utilisateur } = useAuth();
+const { utilisateur, token } = useAuth();
   const router = useRouter();
   const [ventes, setVentes] = useState<Vente[]>([]);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
@@ -18,24 +18,27 @@ export default function PageRapport() {
     const dateObj = new Date();
     // ✅ format ISO "YYYY-MM-DD" → comparable avec les dates stockées en base
     setAujourdhui(
-      `dateObj.getFullYear()−{dateObj.getFullYear()}-dateObj.getFullYear()−{String(dateObj.getMonth() + 1).padStart(2, "0")}-${String(dateObj.getDate()).padStart(2, "0")}`
-    );
+  `dateObj.getFullYear()−{dateObj.getFullYear()}-dateObj.getFullYear()−{String(dateObj.getMonth() + 1).padStart(2, "0")}-${String(dateObj.getDate()).padStart(2, "0")}`
+);
 
-    const charger = async () => {
-      try {
-        const [rVentes, rCons] = await Promise.all([
-          fetch("/api/ventes"),
-          fetch("/api/consultations"),
-        ]);
-        if (rVentes.ok) setVentes(await rVentes.json());
-        if (rCons.ok) setConsultations(await rCons.json());
-      } catch {
-        console.error("Erreur de chargement des données");
-      }
-    };
-    charger();
-  }, []);
+const charger = async () => {
+  try {
+    const entetes = token ? { Authorization: `Bearer ${token}` } : {};
+    const [rVentes, rCons] = await Promise.all([
+      fetch("/api/ventes", { headers: entetes }),
+      fetch("/api/consultations", { headers: entetes }),
+    ]);
+    if (rVentes.ok) setVentes(await rVentes.json());
+    if (rCons.ok) setConsultations(await rCons.json());
+  } catch {
+    console.error("Erreur de chargement des données");
+  }
+};
+charger();
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
+   
   // ✅ On attend que la date soit prête avant de filtrer (sinon filtre sur "" = tout)
   if (!aujourdhui) return null;
 
