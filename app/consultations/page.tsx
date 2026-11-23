@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
@@ -33,24 +33,28 @@ export default function PageConsultations() {
     if (!utilisateur) router.push("/login");
   }, [utilisateur, router]);
 
-  const charger = async () => {
+  const charger = useCallback(async () => {
     if (!token) return;
     const reponse = await fetch("/api/consultations", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (reponse.ok) setClients(await reponse.json());
-  };
+    if (reponse.ok) {
+      const donnees = await reponse.json();
+      setClients(donnees);
+    } else if (reponse.status === 401) {
+      deconnexion();
+      router.push("/login");
+    }
+  }, [token, deconnexion, router]);
 
   useEffect(() => {
-    if (token) charger();
-  }, [token]);
+    charger();
+  }, [charger]);
 
-  const ajouter = async () => {
-    if (!nom || !motif) {
-      alert("Veuillez remplir au moins le nom et le motif !");
-      return;
-    }
-    const maintenant = new Date();
+  const ajouter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+
     const reponse = await fetch("/api/consultations", {
       method: "POST",
       headers: {
@@ -63,109 +67,178 @@ export default function PageConsultations() {
         signe,
         motif,
         soin,
-        montant: Number(montant) || 0,
-        date:
-          maintenant.toLocaleDateString("fr-FR") +
-          " " +
-          maintenant.toLocaleTimeString("fr-FR", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+        montant: Number(montant),
       }),
     });
+
     if (reponse.ok) {
-      setNom(""); setTelephone(""); setSigne(""); setMotif(""); setSoin(""); setMontant("");
+      setNom("");
+      setTelephone("");
+      setSigne("");
+      setMotif("");
+      setSoin("");
+      setMontant("");
       charger();
-    } else {
-      alert("Erreur : " + (await reponse.json()).erreur);
     }
   };
 
   const supprimer = async (id: number) => {
-    if (!confirm("Supprimer cette consultation ?")) return;
-    await fetch(`/api/consultations?id=${id}`, {
+    if (!token) return;
+    const reponse = await fetch(`/api/consultations/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
-    charger();
+    if (reponse.ok) charger();
   };
 
-  const totalRecettes = clients.reduce((s, c) => s + c.montant, 0);
+  const total = clients.reduce((somme, c) => somme + c.montant, 0);
 
   if (!utilisateur) return null;
 
   return (
-    <div className="min-h-screen bg-green-50">
-      <header className="bg-green-700 text-white p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">🧑‍🤝‍🧑 Clients & Consultations</h1>
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push("/dashboard")} className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded">
-            ← Tableau de bord
-          </button>
+    <main className="min-h-screen bg-gray-950 text-gray-100 p-8">
+      <div className="max-w-4xl mx-auto">
+        <header className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-amber-400">
+            ✨ Consultations — {utilisateur.nom}
+          </h1>
           <button
-            onClick={() => { deconnexion(); router.push("/login"); }}
-            className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded"
+            onClick={() => {
+              deconnexion();
+              router.push("/login");
+            }}
+            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 transition"
           >
             Déconnexion
           </button>
-        </div>
-      </header>
+        </header>
 
-      <main className="p-8 max-w-4xl mx-auto">
-        <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <h2 className="text-lg font-bold mb-4">➕ Nouvelle consultation</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-            <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom du client *" className="border rounded px-3 py-2" />
-            <input value={telephone} onChange={(e) => setTelephone(e.target.value)} placeholder="Téléphone" className="border rounded px-3 py-2" />
-            <select value={signe} onChange={(e) => setSigne(e.target.value)} className="border rounded px-3 py-2">
-              <option value="">-- Signe astrologique --</option>
-              {SIGNES.map((s) => <option key={s} value={s}>{s}</option>)}
+        <form
+          onSubmit={ajouter}
+          className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4 mb-10"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Nom du client"
+              required
+              className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-amber-400 outline-none"
+            />
+            <input
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+              placeholder="Téléphone"
+              required
+              className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-amber-400 outline-none"
+            />
+            <select
+              value={signe}
+              onChange={(e) => setSigne(e.target.value)}
+              required
+              className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-amber-400 outline-none"
+            >
+              <option value="">— Signe astrologique —</option>
+              {SIGNES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
+            <input
+              value={motif}
+              onChange={(e) => setMotif(e.target.value)}
+              placeholder="Motif de la consultation"
+              required
+              className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-amber-400 outline-none"
+            />
+            <input
+              value={soin}
+              onChange={(e) => setSoin(e.target.value)}
+              placeholder="Soin recommandé"
+              className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-amber-400 outline-none"
+            />
+            <input
+              value={montant}
+              onChange={(e) => setMontant(e.target.value)}
+              placeholder="Montant (€)"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-amber-400 outline-none"
+            />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Motif (maladie, chance, protection...)" className="border rounded px-3 py-2 sm:col-span-2" />
-            <input value={soin} onChange={(e) => setSoin(e.target.value)} placeholder="Soin / remède donné" className="border rounded px-3 py-2" />
-            <input value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant payé (FC)" type="number" className="border rounded px-3 py-2" />
-          </div>
-          <button onClick={ajouter} className="mt-3 bg-green-700 hover:bg-green-600 text-white rounded px-6 py-2 font-bold">
-            Enregistrer la consultation
+          <button
+            type="submit"
+            className="w-full py-2 rounded-lg bg-amber-500 text-gray-950 font-semibold hover:bg-amber-400 transition"
+          >
+            Ajouter la consultation
           </button>
-        </div>
+        </form>
 
-        <div className="bg-green-700 text-white p-6 rounded-lg shadow mb-6 text-center">
-          <p className="text-lg">💰 Total des consultations</p>
-          <p className="text-3xl font-bold">{totalRecettes} FC</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-bold mb-4">📋 Clients ({clients.length})</h2>
-          {clients.length === 0 ? (
-            <p className="text-gray-500">Aucun client pour le moment.</p>
-          ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-2">Date</th><th className="py-2">Nom</th><th className="py-2">Signe</th>
-                  <th className="py-2">Motif</th><th className="py-2">Soin</th><th className="py-2">Montant</th><th></th>
+        <section className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-800 text-amber-400">
+              <tr>
+                <th className="px-4 py-3 text-left">Date</th>
+                <th className="px-4 py-3 text-left">Nom</th>
+                <th className="px-4 py-3 text-left">Téléphone</th>
+                <th className="px-4 py-3 text-left">Signe</th>
+                <th className="px-4 py-3 text-left">Motif</th>
+                <th className="px-4 py-3 text-left">Soin</th>
+                <th className="px-4 py-3 text-right">Montant</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
+                    Aucune consultation enregistrée.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {clients.map((c) => (
-                  <tr key={c.id} className="border-b">
-                    <td className="py-2 text-sm text-gray-600">{c.date}</td>
-                    <td className="py-2 font-bold">{c.nom}</td>
-                    <td className="py-2">{c.signe}</td>
-                    <td className="py-2">{c.motif}</td>
-                    <td className="py-2">{c.soin}</td>
-                    <td className="py-2 font-bold">{c.montant} FC</td>
-                    <td><button onClick={() => supprimer(c.id)} className="text-red-600">❌</button></td>
+              ) : (
+                clients.map((c) => (
+                  <tr key={c.id} className="border-t border-gray-800 hover:bg-gray-800/50">
+                    <td className="px-4 py-3">
+                      {new Date(c.date).toLocaleDateString("fr-FR")}
+                    </td>
+                    <td className="px-4 py-3 font-medium">{c.nom}</td>
+                    <td className="px-4 py-3">{c.telephone}</td>
+                    <td className="px-4 py-3">{c.signe}</td>
+                    <td className="px-4 py-3">{c.motif}</td>
+                    <td className="px-4 py-3">{c.soin}</td>
+                    <td className="px-4 py-3 text-right text-emerald-400">
+                      {c.montant.toFixed(2)} €
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => supprimer(c.id)}
+                        className="text-red-400 hover:text-red-300"
+                        aria-label={`Supprimer ${c.nom}`}
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </main>
-    </div>
+                ))
+              )}
+            </tbody>
+            <tfoot className="bg-gray-800 font-semibold">
+              <tr>
+                <td colSpan={6} className="px-4 py-3 text-right">
+                  Total
+                </td>
+                <td className="px-4 py-3 text-right text-amber-400">
+                  {total.toFixed(2)} €
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
+      </div>
+    </main>
   );
 }

@@ -1,49 +1,37 @@
-import { promises as fs } from "fs";
-import path from "path";
 import { NextResponse } from "next/server";
-import { verifierSession } from "../session";
-
-const CHEMIN = path.join(process.cwd(), "data", "consultations.json");
-
-type Consultation = { id: number; [key: string]: any };
-
-async function lireConsultations(): Promise<Consultation[]> {
-  try {
-    return JSON.parse(await fs.readFile(CHEMIN, "utf-8"));
-  } catch {
-    return [];
-  }
-}
+import { sql, initDB } from "@/lib/db";
+import { verifierToken } from "@/lib/auth";
 
 export async function GET(requete: Request) {
-  const session = await verifierSession(requete);
-  if (!session)
-    return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
-  return NextResponse.json(await lireConsultations());
+  await initDB();
+  const payload = verifierToken(requete);
+  if (!payload) return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
+
+  const consultations = await sql`
+    SELECT * FROM consultations
+    WHERE utilisateur_id = ${payload.id}
+    ORDER BY date DESC
+  `;
+
+  return NextResponse.json(consultations);
 }
 
 export async function POST(requete: Request) {
-  const session = await verifierSession(requete);
-  if (!session)
-    return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
-  const body = await requete.json();
-  const consultations = await lireConsultations();
-  const nouveau: Consultation = { id: Date.now(), ...body };
-  consultations.push(nouveau);
-  await fs.writeFile(CHEMIN, JSON.stringify(consultations, null, 2));
-  return NextResponse.json(nouveau);
-}
+  await initDB();
+  const payload = verifierToken(requete);
+  if (!payload) return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
 
-export async function DELETE(requete: Request) {
-  const session = await verifierSession(requete);
-  if (!session)
-    return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
-  const { searchParams } = new URL(requete.url);
-  const id = Number(searchParams.get("id"));
-  const consultations = await lireConsultations();
-  await fs.writeFile(
-    CHEMIN,
-    JSON.stringify(consultations.filter((c: Consultation) => c.id !== id), null, 2)
-  );
-  return NextResponse.json({ ok: true });
+  const { nom, telephone, signe, motif, soin, montant } = await requete.json();
+
+  if (!nom || !telephone || !signe || !motif || montant == null) {
+    return NextResponse.json({ erreur: "Champs manquants" }, { status: 400 });
+  }
+
+  const resultat = await sql`
+    INSERT INTO consultations (utilisateur_id, nom, telephone, signe, motif, soin, montant)
+    VALUES (payload.id,{payload.id},payload.id,{nom}, telephone,{telephone},telephone,{signe}, motif,{motif},motif,{soin ?? ""}, ${montant})
+    RETURNING *
+  `;
+
+  return NextResponse.json(resultat[0], { status: 201 });
 }

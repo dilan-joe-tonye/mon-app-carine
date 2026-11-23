@@ -12,27 +12,38 @@ export default function PageRapport() {
   const router = useRouter();
   const [ventes, setVentes] = useState<Vente[]>([]);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [aujourdhui, setAujourdhui] = useState("");
+  const [aujourdhui, setAujourdhui] = useState<string | null>(null); // ✅ null au départ → évite le mismatch SSR/client
 
   useEffect(() => {
-    // ✅ La date est calculée dans le useEffect, jamais au prerender
-setAujourdhui(new Date().toLocaleDateString("fr-CA"));
+    const dateObj = new Date();
+    // ✅ format ISO "YYYY-MM-DD" → comparable avec les dates stockées en base
+    setAujourdhui(
+      `dateObj.getFullYear()−{dateObj.getFullYear()}-dateObj.getFullYear()−{String(dateObj.getMonth() + 1).padStart(2, "0")}-${String(dateObj.getDate()).padStart(2, "0")}`
+    );
 
-
-    // 📥 On charge depuis la base de données (plus le localStorage !)
-    fetch("/api/ventes")
-      .then((r) => r.json())
-      .then((data) => setVentes(data));
-    fetch("/api/consultations")
-      .then((r) => r.json())
-      .then((data) => setConsultations(data));
+    const charger = async () => {
+      try {
+        const [rVentes, rCons] = await Promise.all([
+          fetch("/api/ventes"),
+          fetch("/api/consultations"),
+        ]);
+        if (rVentes.ok) setVentes(await rVentes.json());
+        if (rCons.ok) setConsultations(await rCons.json());
+      } catch {
+        console.error("Erreur de chargement des données");
+      }
+    };
+    charger();
   }, []);
 
-  const ventesJour = ventes.filter((v) => v.date.startsWith(aujourdhui));
-  const consJour = consultations.filter((c) => c.date.startsWith(aujourdhui));
+  // ✅ On attend que la date soit prête avant de filtrer (sinon filtre sur "" = tout)
+  if (!aujourdhui) return null;
 
-  const totalVentes = ventesJour.reduce((s, v) => s + v.total, 0);
-  const totalCons = consJour.reduce((s, c) => s + c.montant, 0);
+  const ventesJour = ventes.filter((v) => (v.date ?? "").startsWith(aujourdhui));
+  const consJour = consultations.filter((c) => (c.date ?? "").startsWith(aujourdhui));
+
+  const totalVentes = ventesJour.reduce((s, v) => s + (v.total || 0), 0);
+  const totalCons = consJour.reduce((s, c) => s + (c.montant || 0), 0);
   const total = totalVentes + totalCons;
 
   if (!utilisateur) return null;
@@ -40,9 +51,7 @@ setAujourdhui(new Date().toLocaleDateString("fr-CA"));
   if (utilisateur.role !== "administrateur") {
     return (
       <div className="min-h-screen bg-green-50 p-8 text-center">
-        <p className="text-red-600 font-bold text-xl">
-          ❌ Accès réservé à l'administratrice
-        </p>
+        <p className="text-red-600 font-bold text-xl">❌ Accès réservé à l&apos;administratrice</p>
         <button
           onClick={() => router.push("/dashboard")}
           className="mt-4 bg-green-700 text-white px-4 py-2 rounded"
@@ -55,18 +64,18 @@ setAujourdhui(new Date().toLocaleDateString("fr-CA"));
 
   return (
     <div className="min-h-screen bg-white p-8 max-w-3xl mx-auto text-black">
-      {/* En-tête du rapport */}
       <div className="text-center border-b-2 border-green-700 pb-4 mb-6">
+        {/* ✅ next/image au lieu de <img> */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png.jpeg" alt="Logo" className="w-24 h-24 mx-auto object-contain" />
         <h1 className="text-2xl font-bold text-green-800">Clinique Traditionnelle des Arbres 🌿</h1>
-        <p className="text-lg">Rapport du {new Date(aujourdhui).toLocaleDateString("fr-FR")}</p>
-
+        {/* ✅ affichage lisible sans repasser par new Date(aujourdhui) qui peut faillir */}
+        <p className="text-lg">Rapport du {aujourdhui}</p>
       </div>
 
-      {/* Ventes */}
       <h2 className="text-xl font-bold mb-2">💰 Ventes du jour ({ventesJour.length})</h2>
       {ventesJour.length === 0 ? (
-        <p className="mb-4 text-gray-500">Aucune vente aujourd'hui.</p>
+        <p className="mb-4 text-gray-500">Aucune vente aujourd&apos;hui.</p>
       ) : (
         <table className="w-full border mb-6">
           <thead>
@@ -80,7 +89,7 @@ setAujourdhui(new Date().toLocaleDateString("fr-CA"));
           <tbody>
             {ventesJour.map((v) => (
               <tr key={v.id}>
-                <td className="border p-2">{v.date.split(" ")[1]}</td>
+                <td className="border p-2">{(v.date ?? "").split(" ")[1] ?? "-"}</td>
                 <td className="border p-2">{v.article}</td>
                 <td className="border p-2">{v.quantite}</td>
                 <td className="border p-2 font-bold">{v.total} FC</td>
@@ -94,10 +103,9 @@ setAujourdhui(new Date().toLocaleDateString("fr-CA"));
         </table>
       )}
 
-      {/* Consultations */}
       <h2 className="text-xl font-bold mb-2">🧑‍🤝‍🧑 Consultations du jour ({consJour.length})</h2>
       {consJour.length === 0 ? (
-        <p className="mb-4 text-gray-500">Aucune consultation aujourd'hui.</p>
+        <p className="mb-4 text-gray-500">Aucune consultation aujourd&apos;hui.</p>
       ) : (
         <table className="w-full border mb-6">
           <thead>
@@ -111,7 +119,7 @@ setAujourdhui(new Date().toLocaleDateString("fr-CA"));
           <tbody>
             {consJour.map((c) => (
               <tr key={c.id}>
-                <td className="border p-2">{c.date.split(" ")[1]}</td>
+                <td className="border p-2">{(c.date ?? "").split(" ")[1] ?? "-"}</td>
                 <td className="border p-2">{c.nom}</td>
                 <td className="border p-2">{c.motif}</td>
                 <td className="border p-2 font-bold">{c.montant} FC</td>
@@ -125,7 +133,6 @@ setAujourdhui(new Date().toLocaleDateString("fr-CA"));
         </table>
       )}
 
-      {/* Total général */}
       <div className="border-2 border-green-700 p-4 text-center my-6">
         <p className="text-xl">💵 RECETTE TOTALE DU JOUR</p>
         <p className="text-4xl font-bold text-green-800">{total} FC</p>
@@ -133,7 +140,6 @@ setAujourdhui(new Date().toLocaleDateString("fr-CA"));
 
       <p className="text-center text-sm text-gray-500">Signature : ______________________</p>
 
-      {/* Boutons (invisible à l'impression grâce à print:hidden) */}
       <div className="flex gap-3 justify-center mt-8 print:hidden">
         <button
           onClick={() => window.print()}
